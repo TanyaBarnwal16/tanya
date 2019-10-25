@@ -1,0 +1,201 @@
+       ID DIVISION.                                                     00010000
+       PROGRAM-ID. DB2PGM.                                              00020000
+       DATA DIVISION.                                                   00030000
+       WORKING-STORAGE SECTION.                                         00040000
+           EXEC SQL                                                     00041000
+             INCLUDE EMP                                                00042000
+           END-EXEC                                                     00043000
+           EXEC SQL                                                     00044000
+             INCLUDE SQLCA                                              00045000
+           END-EXEC                                                     00046000
+       COPY EM88MS.                                                     00050000
+       COPY DFHAID.                                                     00051000
+       COPY DFHBMSCA.                                                   00052000
+       01 WS-SEND.                                                      00053000
+          02 WS-SEND-TEXT PIC X(50).                                    00054000
+          02 WS-SEND-LEN  PIC S9(4) COMP.                               00055000
+       01 WS-COMAREA      PIC X(3).                                     00055100
+       01 WS-COMAREA-LEN  PIC S9(4) COMP.                               00055202
+       77 TEMPS           PIC S9(6)V9(2).                               00055314
+       77 TEMPV           PIC S9(6)V9(2).                               00055414
+       77 LNAMEIND        PIC S9(4) COMP.                               00055526
+       77 WS-RESP-CODE    PIC S9(8) COMP.                               00055713
+       01 WS-EMP-REC.                                                   00055813
+          02 WS-ENO      PIC 9999.                                      00055913
+          02 WS-FNAME    PIC X(10).                                     00056013
+          02 WS-LNAME    PIC X(10).                                     00056113
+       LINKAGE SECTION.                                                 00056213
+       01 DFHCOMMAREA    PIC XXX.                                       00056313
+       PROCEDURE DIVISION.                                              00056413
+       MAIN-PARA.                                                       00057000
+           IF EIBCALEN = 0                                              00058000
+              MOVE LOW-VALUES TO EM88MO                                 00059000
+              PERFORM SEND-MAP                                          00060000
+              MOVE 'SEN' TO WS-COMAREA                                  00070000
+              PERFORM COND-RETURN                                       00080000
+           ELSE                                                         00090000
+              PERFORM RECEIVE-MAP                                       00100000
+              EVALUATE EIBAID                                           00110000
+                WHEN DFHPF1                                             00120000
+                     MOVE DFHBMPRO TO MSGA                              00121021
+      *              MOVE ESALI TO ESALO                                00130021
+      *              PERFORM SEND-MAP                                   00131021
+                     PERFORM WRITE-TBL                                  00140000
+                     MOVE 'WRT' TO WS-COMAREA                           00150000
+                     PERFORM COND-RETURN                                00151000
+                WHEN DFHPF2                                             00151100
+                     MOVE DFHBMPRO TO MSGA                              00151200
+                     PERFORM READ-TBL                                   00151301
+                     MOVE 'RED' TO WS-COMAREA                           00151400
+                     PERFORM COND-RETURN                                00151500
+                WHEN DFHPF3                                             00151600
+                     MOVE 'THANK YOU. VISIT APP AGAIN ' TO WS-SEND-TEXT 00151700
+                     MOVE LENGTH OF WS-SEND-TEXT TO WS-SEND-LEN         00151800
+                     EXEC CICS SEND TEXT                                00151900
+                         FROM(WS-SEND-TEXT)                             00152000
+                         LENGTH(WS-SEND-LEN)                            00152100
+                         ERASE                                          00152200
+                         FREEKB                                         00152300
+                     END-EXEC                                           00152400
+                     EXEC CICS RETURN                                   00152500
+                     END-EXEC                                           00152600
+                WHEN DFHPF4                                             00152700
+                     MOVE DFHBMPRO TO MSGA                              00152809
+                     PERFORM REWRITE-TBL                                00153010
+                     MOVE 'RWRT' TO WS-COMAREA                          00154010
+                     PERFORM COND-RETURN                                00155010
+                WHEN DFHPF5                                             00157400
+                     MOVE DFHBMPRO TO MSGA                              00157500
+                     PERFORM CLEAR-TBL                                  00157609
+                     MOVE 'CLR' TO WS-COMAREA                           00157700
+                     PERFORM COND-RETURN                                00157800
+                WHEN DFHPF6                                             00157900
+                     MOVE DFHBMPRO TO MSGA                              00158000
+                     PERFORM DELETE-TBL                                 00158109
+                     MOVE 'DEL' TO WS-COMAREA                           00158200
+                     PERFORM COND-RETURN                                00158300
+                WHEN OTHER                                              00158400
+                     MOVE DFHBMUNP TO MSGA                              00158500
+                     PERFORM OTH-TBL                                    00158609
+                     MOVE 'OTH' TO WS-COMAREA                           00158700
+                     PERFORM COND-RETURN                                00158800
+                END-EVALUATE                                            00158900
+           END-IF                                                       00159000
+              EXEC CICS RETURN                                          00159100
+              END-EXEC.                                                 00159200
+       WRITE-TBL.                                                       00159300
+             MOVE ENUMI  TO HV-ENO                                      00159400
+             MOVE ENAMFI TO HV-FNAME                                    00159600
+             MOVE ENAMLI TO HV-LNAME                                    00159821
+             IF ENAMLI   IS = SPACES  OR ENAMLI  IS = LOW-VALUES        00159930
+               MOVE 'NULL' TO WS-SEND-TEXT                              00160030
+               MOVE LENGTH OF WS-SEND-TEXT TO WS-SEND-LEN               00160130
+               EXEC CICS SEND                                           00160230
+                    TEXT                                                00160330
+                    FROM(WS-SEND-TEXT)                                  00160430
+                    LENGTH(WS-SEND-LEN)                                 00160530
+                    ERASE                                               00160630
+                    FREEKB                                              00160730
+               END-EXEC                                                 00160830
+               MOVE -1 TO LNAMEIND                                      00160929
+             END-IF                                                     00161029
+             MOVE EDOBI  TO HV-BDATE                                    00161111
+             MOVE EDOJI  TO HV-JDATE                                    00161212
+             MOVE ESALI  TO HV-BASIC                                    00161317
+             MOVE EVARI  TO HV-VARPAY                                   00161417
+             MOVE EJOBI  TO HV-JOBCD                                    00161512
+             MOVE EDPTI  TO HV-DEPTNO                                   00161612
+             MOVE ELEVI  TO HV-EDLEVEL                                  00161712
+             EXEC SQL                                                   00161812
+                 INSERT INTO EMP(ENO,FNAME,LNAME,BDATE,JDATE,BASIC,     00161912
+                 VARPAY,JOBCD,DEPTNO,EDLEVEL)                           00162012
+                 VALUES(:HV-ENO,:HV-FNAME,:HV-LNAME:LNAMEIND,:HV-BDATE, 00170019
+                 :HV-JDATE, :HV-BASIC,:HV-VARPAY,:HV-JOBCD,             00171017
+                 :HV-DEPTNO,:HV-EDLEVEL)                                00180017
+             END-EXEC                                                   00181000
+             IF SQLCODE = 0                                             00182000
+                MOVE 'INSERT SUCCESSFUL' TO MSGO                        00183000
+             ELSE                                                       00184000
+                MOVE SQLCODE             TO MSGO                        00185000
+             END-IF                                                     00186000
+             PERFORM SEND-MAP.                                          00187000
+       REWRITE-TBL.                                                     00188009
+             MOVE ENUMI  TO HV-ENO                                      00188109
+             MOVE ENAMFI TO HV-FNAME                                    00188210
+             MOVE EDOBI  TO HV-BDATE                                    00188310
+             EXEC SQL                                                   00188410
+                  UPDATE EMP E                                          00188510
+                  SET FNAME = :HV-FNAME,BDATE = :HV-BDATE               00188610
+                  WHERE ENO = :HV-ENO                                   00188710
+             END-EXEC                                                   00188810
+             IF SQLCODE = 0                                             00188910
+                MOVE 'REWRITE  SUCCESSFUL' TO MSGO                      00189010
+             ELSE                                                       00190010
+                MOVE SQLCODE               TO MSGO                      00190110
+             END-IF                                                     00190210
+             PERFORM SEND-MAP.                                          00190310
+       READ-TBL.                                                        00220100
+             MOVE ENUMI    TO HV-ENO                                    00220200
+             EXEC SQL                                                   00220400
+                  SELECT FNAME,LNAME,BDATE,JDATE,BASIC,VARPAY,JOBCD,    00220521
+                  DEPTNO,EDLEVEL                                        00220621
+                  INTO :HV-FNAME,:HV-LNAME:LNAMEIND,:HV-BDATE,:HV-JDATE,00220721
+                  :HV-BASIC,:HV-VARPAY,:HV-JOBCD,:HV-DEPTNO,:HV-EDLEVEL 00220821
+                  FROM EMP WHERE ENO = :HV-ENO                          00220900
+             END-EXEC                                                   00221000
+             IF SQLCODE = 0                                             00221121
+               MOVE HV-FNAME      TO ENAMFO                             00221821
+               MOVE HV-BDATE      TO EDOBO                              00221921
+               MOVE HV-JDATE      TO EDOJO                              00222021
+               MOVE HV-BASIC      TO ESALO                              00222121
+               MOVE HV-VARPAY     TO EVARO                              00222221
+               MOVE HV-JOBCD      TO EJOBO                              00222321
+               MOVE HV-DEPTNO     TO EDPTO                              00222421
+               MOVE HV-EDLEVEL    TO ELEVO                              00222521
+               IF LNAMEIND IS = -1                                      00222621
+                 MOVE 'UNKNOWN'  TO ENAMLO                              00222721
+               ELSE                                                     00222821
+                 MOVE HV-LNAME   TO ENAMLO                              00222921
+               END-IF                                                   00223021
+               MOVE 'READ SUCCESSFUL'   TO MSGO                         00223121
+             ELSE                                                       00223221
+                MOVE SQLCODE             TO MSGO                        00223321
+             END-IF                                                     00223421
+             PERFORM SEND-MAP.                                          00224021
+       CLEAR-TBL.                                                       00231009
+           MOVE LOW-VALUES TO EM88MO                                    00231130
+           PERFORM SEND-MAP.                                            00233000
+       DELETE-TBL.                                                      00233109
+             MOVE ENUMI  TO HV-ENO                                      00233208
+             EXEC SQL                                                   00233308
+                  DELETE FROM EMP                                       00233408
+                  WHERE ENO = :HV-ENO                                   00233508
+             END-EXEC                                                   00233708
+             IF SQLCODE = 0                                             00233808
+                MOVE 'DELETE SUCCESSFUL'  TO MSGO                       00233900
+             ELSE                                                       00234008
+                MOVE SQLCODE              TO MSGO                       00234108
+             END-IF                                                     00234208
+             PERFORM SEND-MAP.                                          00234308
+       OTH-TBL.                                                         00234409
+           MOVE 'WRONG AID KEY' TO MSGO                                 00234500
+           PERFORM SEND-MAP.                                            00234600
+       COND-RETURN.                                                     00234700
+           MOVE LENGTH OF WS-COMAREA TO WS-COMAREA-LEN                  00234800
+           EXEC CICS RETURN                                             00234900
+               TRANSID('T88A')                                          00235000
+               COMMAREA(WS-COMAREA)                                     00236000
+               LENGTH(3)                                                00237000
+           END-EXEC.                                                    00238000
+       SEND-MAP.                                                        00239000
+           EXEC CICS SEND                                               00240000
+              MAP('EM88M')                                              00250000
+              MAPSET('EM88MS')                                          00260000
+              ERASE                                                     00270000
+              FREEKB                                                    00280000
+           END-EXEC.                                                    00290000
+       RECEIVE-MAP.                                                     00300000
+           EXEC CICS RECEIVE                                            00310000
+              MAP('EM88M')                                              00320000
+              MAPSET('EM88MS')                                          00330000
+           END-EXEC.                                                    00340000

@@ -1,0 +1,18 @@
+EMP88MM  DFHMSD TYPE=&SYSPARM,MODE=INOUT,CTRL=(FREEKB,FRSET),          X00010000
+               LANG=COBOL,TIOAPFX=YES,                                 X00020000
+               DSATTS=(COLOR,HILIGHT),                                 X00030000
+               MAPATTS=(COLOR,HILIGHT),                                X00040000
+               STORAGE=AUTO                                             00050000
+EMP088M  DFHMDI SIZE=(24,80)                                            00060000
+         DFHMDF POS=(02,18),LENGTH=17,ATTRB=ASKIP,                     X00070002
+               INITIAL='EMPLOYEE DETAILS '                              00080000
+         DFHMDF POS=(03,18),LENGTH=17,ATTRB=ASKIP,                     X00090002
+               INITIAL='================'                               00100000
+        DFHMDF POS=(05,18),LENGTH=68,ATTRB=PROT,COLOR=TURQUOISE,       X00110013
+               INITIAL='EMP NUMBER                           EMP NAME'  00120000
+LINE1    DFHMDF POS=(09,10),LENGTH=79,ATTRB=(PROT,FSET),OCCURS=7,      X00130008
+               INITIAL='_____________________________________________'  00131001
+         DFHMDF POS=(20,18),LENGTH=26,ATTRB=PROT,                      X00140000
+               INITIAL='F7:BROWSE'                                      00150000
+         DFHMSD TYPE=FINAL                                              00160000
+         END                                                            00170000

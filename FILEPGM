@@ -1,0 +1,204 @@
+       ID DIVISION.                                                     00010000
+       PROGRAM-ID. FILEPGM.                                             00020000
+       DATA DIVISION.                                                   00030000
+       WORKING-STORAGE SECTION.                                         00040000
+       COPY EM88MS.                                                     00050000
+       COPY DFHAID.                                                     00051000
+       COPY DFHBMSCA.                                                   00052001
+       01 WS-SEND.                                                      00053000
+          02 WS-SEND-TEXT PIC X(50).                                    00054000
+          02 WS-SEND-LEN  PIC S9(4) COMP.                               00055000
+       01 WS-COMAREA      PIC X(3).                                     00055101
+       01 WS-COMAREA-LEN  PIC S9(4) COMP.                               00055202
+       77 WS-RESP-CODE    PIC S9(8) COMP.                               00055300
+       01 WS-EMP-REC.                                                   00056000
+          02 WS-ENO      PIC 9999.                                      00057006
+          02 WS-FNAME    PIC X(10).                                     00058000
+          02 WS-LNAME    PIC X(10).                                     00058100
+       LINKAGE SECTION.                                                 00059000
+       01 DFHCOMMAREA    PIC XXX.                                       00060000
+       PROCEDURE DIVISION.                                              00070000
+       A100-MAIN-PARA.                                                  00071000
+           IF EIBCALEN = 0                                              00080000
+              MOVE LOW-VALUES TO EM88MO                                 00090000
+              PERFORM SEND-MAP                                          00100001
+              MOVE 'SEN' TO WS-COMAREA                                  00110001
+              PERFORM COND-RETURN                                       00120001
+           ELSE                                                         00130000
+              PERFORM RECEIVE-MAP                                       00140001
+              EVALUATE EIBAID                                           00150000
+                WHEN DFHPF1                                             00151000
+                     MOVE DFHBMPRO TO MSGA                              00151204
+                     PERFORM WRITE-PARA                                 00151300
+                     MOVE 'WRT' TO WS-COMAREA                           00151501
+                     PERFORM COND-RETURN                                00151600
+                WHEN DFHPF2                                             00151700
+                     MOVE DFHBMPRO TO MSGA                              00151800
+                     PERFORM READ-PARA                                  00151900
+                     MOVE 'RED' TO WS-COMAREA                           00152001
+                     PERFORM COND-RETURN                                00152100
+                WHEN DFHPF3                                             00152200
+                     MOVE 'THANK YOU. VISIT APP AGAIN ' TO WS-SEND-TEXT 00152301
+                     MOVE LENGTH OF WS-SEND-TEXT TO WS-SEND-LEN         00152401
+                     EXEC CICS SEND TEXT                                00152500
+                         FROM(WS-SEND-TEXT)                             00152601
+                         LENGTH(WS-SEND-LEN)                            00152701
+                         ERASE                                          00152800
+                         FREEKB                                         00152900
+                     END-EXEC                                           00153000
+                     EXEC CICS RETURN                                   00153100
+                     END-EXEC                                           00153200
+                WHEN DFHPF4                                             00154000
+                     MOVE DFHBMPRO TO MSGA                              00154104
+                     IF WS-COMAREA = 'RED'                              00154207
+                       PERFORM REWRITE-PARA                             00156005
+                       MOVE 'RWRT' TO WS-COMAREA                        00157004
+                       PERFORM COND-RETURN                              00157104
+                     ELSE                                               00157207
+                       PERFORM READ-REWRITE-PARA                        00157307
+                       MOVE 'RETT' TO WS-COMAREA                        00157407
+                       PERFORM COND-RETURN                              00157507
+                     END-IF                                             00157607
+                WHEN DFHPF5                                             00157700
+                     MOVE DFHBMPRO TO MSGA                              00157800
+                     PERFORM CLEAR-PARA                                 00157900
+                     MOVE 'CLR' TO WS-COMAREA                           00158001
+                     PERFORM COND-RETURN                                00158100
+                WHEN DFHPF6                                             00158200
+                     MOVE DFHBMPRO TO MSGA                              00158300
+                     PERFORM DELETE-PARA                                00158400
+                     MOVE 'DEL' TO WS-COMAREA                           00158501
+                     PERFORM COND-RETURN                                00158600
+                WHEN OTHER                                              00158700
+                     MOVE DFHBMUNP TO MSGA                              00158800
+                     PERFORM OTH-PARA                                   00158900
+                     MOVE 'OTH' TO WS-COMAREA                           00159001
+                     PERFORM COND-RETURN                                00159100
+                END-EVALUATE                                            00159200
+           END-IF                                                       00159307
+              EXEC CICS RETURN                                          00159400
+              END-EXEC.                                                 00159500
+       WRITE-PARA.                                                      00160000
+             MOVE ENUMI  TO WS-ENO                                      00170003
+             MOVE ENAMFI TO WS-FNAME                                    00180006
+             MOVE ENAMLI TO WS-LNAME                                    00181006
+             EXEC CICS WRITE                                            00182001
+                  DATASET('EM088F1')                                    00183001
+                  RIDFLD(WS-ENO)                                        00184001
+                  FROM(WS-EMP-REC)                                      00185001
+                  LENGTH(80)                                            00186001
+                  RESP(WS-RESP-CODE)                                    00187001
+             END-EXEC.                                                  00188001
+             IF WS-RESP-CODE = DFHRESP(NORMAL)                          00189001
+                MOVE 'INSERT SUCCESSFUL' TO MSGO                        00189101
+             ELSE                                                       00189201
+                MOVE WS-RESP-CODE        TO MSGO                        00189301
+             END-IF                                                     00189407
+             PERFORM SEND-MAP.                                          00189501
+       REWRITE-PARA.                                                    00190005
+           MOVE ENUMI    TO WS-ENO                                      00191004
+           MOVE 80       TO WS-SEND-LEN                                 00194004
+      *    MOVE WS-ENO   TO ENUMO                                       00194105
+      *    MOVE WS-FNAME TO ENAMFO                                      00194205
+      *    MOVE WS-LNAME TO ENAMLO                                      00194305
+           EXEC CICS READ                                               00195003
+                  DATASET('EM088F1')                                    00196003
+                  RIDFLD(WS-ENO)                                        00197003
+                  INTO(WS-EMP-REC)                                      00198003
+                  LENGTH(WS-SEND-LEN)                                   00199003
+                  RESP(WS-RESP-CODE)                                    00199103
+                  UPDATE                                                00199205
+           END-EXEC                                                     00199303
+           IF WS-RESP-CODE = DFHRESP(NORMAL)                            00199403
+             MOVE ENAMFI   TO WS-FNAME                                  00199505
+             MOVE ENAMLI   TO WS-LNAME                                  00199605
+             EXEC CICS REWRITE                                          00199703
+                  DATASET('EM088F1')                                    00199803
+                  FROM(WS-EMP-REC)                                      00199903
+                  LENGTH(80)                                            00200007
+                  RESP(WS-RESP-CODE)                                    00200103
+             END-EXEC                                                   00200203
+             IF WS-RESP-CODE = DFHRESP(NORMAL)                          00200303
+                MOVE 'REWRITE SUCCESSFUL' TO MSGO                       00201003
+             ELSE                                                       00202003
+                MOVE WS-RESP-CODE         TO MSGO                       00203003
+             END-IF                                                     00204003
+           ELSE                                                         00205003
+             MOVE 'INCORRECT USERNAME ' TO MSGO                         00206003
+           END-IF                                                       00207005
+           PERFORM SEND-MAP.                                            00210000
+       READ-REWRITE-PARA.                                               00211005
+           MOVE ENUMI TO WS-ENO                                         00212005
+           MOVE 80    TO WS-SEND-LEN                                    00213005
+           EXEC CICS READ                                               00214005
+                  DATASET('EM088F1')                                    00214105
+                  RIDFLD(WS-ENO)                                        00214205
+                  INTO(WS-EMP-REC)                                      00214305
+                  LENGTH(WS-SEND-LEN)                                   00214405
+                  RESP(WS-RESP-CODE)                                    00214505
+                  UPDATE                                                00214605
+           END-EXEC                                                     00215005
+           IF WS-RESP-CODE = DFHRESP(NORMAL)                            00216005
+             MOVE WS-FNAME  TO ENAMFO                                   00218005
+             MOVE WS-LNAME  TO ENAMLO                                   00219005
+             MOVE 'READ-REWRITE-SUCCESS' TO MSGO                        00219107
+           ELSE                                                         00219205
+             MOVE WS-RESP-CODE TO  MSGO                                 00219305
+           END-IF.                                                      00220605
+       READ-PARA.                                                       00220700
+             MOVE ENUMI    TO WS-ENO                                    00221005
+             MOVE 80       TO WS-SEND-LEN                               00222005
+             EXEC CICS READ                                             00223003
+                  DATASET('EM088F1')                                    00224003
+                  RIDFLD(WS-ENO)                                        00225003
+                  INTO(WS-EMP-REC)                                      00226003
+                  LENGTH(WS-SEND-LEN)                                   00227003
+                  RESP(WS-RESP-CODE)                                    00228003
+             END-EXEC.                                                  00230003
+             IF WS-RESP-CODE = DFHRESP(NORMAL)                          00231003
+                MOVE WS-ENO              TO ENUMO                       00231207
+                MOVE WS-FNAME            TO ENAMFO                      00231307
+                MOVE WS-LNAME            TO ENAMLO                      00231407
+                MOVE 'READ  SUCCESSFUL'  TO MSGO                        00231507
+             ELSE                                                       00231603
+                MOVE WS-RESP-CODE        TO MSGO                        00231703
+             END-IF                                                     00231807
+             PERFORM SEND-MAP.                                          00231903
+       CLEAR-PARA.                                                      00232000
+           MOVE LOW-VALUES  TO MSGO                                     00233000
+           PERFORM SEND-MAP.                                            00233100
+       DELETE-PARA.                                                     00233200
+           MOVE ENUMI  TO WS-ENO                                        00233303
+           EXEC CICS DELETE                                             00233503
+                DATASET('EM088F1')                                      00233603
+                RIDFLD(WS-ENO)                                          00233703
+                RESP(WS-RESP-CODE)                                      00234003
+           END-EXEC                                                     00234103
+           IF WS-RESP-CODE = DFHRESP(NORMAL)                            00234203
+                MOVE 'DELETE SUCCESSFUL'  TO MSGO                       00234403
+           ELSE                                                         00234503
+                MOVE WS-RESP-CODE         TO MSGO                       00234603
+           END-IF                                                       00234707
+           PERFORM SEND-MAP.                                            00234803
+       OTH-PARA.                                                        00235100
+           MOVE 'WRONG AID KEY' TO MSGO                                 00235200
+           PERFORM SEND-MAP.                                            00235300
+       COND-RETURN.                                                     00235400
+           MOVE LENGTH OF WS-COMAREA TO WS-COMAREA-LEN                  00235501
+           EXEC CICS RETURN                                             00235600
+               TRANSID('T88A')                                          00235700
+               COMMAREA(WS-COMAREA)                                     00236001
+               LENGTH(3)                                                00237003
+           END-EXEC.                                                    00238000
+       SEND-MAP.                                                        00239000
+           EXEC CICS SEND                                               00240000
+              MAP('EM88M')                                              00250000
+              MAPSET('EM88MS')                                          00260000
+              ERASE                                                     00270000
+              FREEKB                                                    00280000
+           END-EXEC.                                                    00290000
+       RECEIVE-MAP.                                                     00300000
+           EXEC CICS RECEIVE                                            00310000
+              MAP('EM88M')                                              00320000
+              MAPSET('EM88MS')                                          00330000
+           END-EXEC.                                                    00340000

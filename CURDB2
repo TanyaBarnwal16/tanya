@@ -1,0 +1,123 @@
+       ID DIVISION.                                                     00010000
+       PROGRAM-ID. CURDB2.                                              00020000
+       DATA DIVISION.                                                   00030000
+       WORKING-STORAGE SECTION.                                         00040000
+           EXEC SQL                                                     00041000
+             INCLUDE EMP                                                00042000
+           END-EXEC                                                     00043000
+           EXEC SQL                                                     00044000
+             INCLUDE SQLCA                                              00045000
+           END-EXEC                                                     00046000
+       COPY EMP88MM.                                                    00047000
+       COPY DFHAID.                                                     00048000
+       COPY DFHBMSCA.                                                   00049000
+       01 WS-SEND.                                                      00050003
+          05 WS-SEND-TEXT PIC X(50).                                    00051003
+          05 WS-SEND-LEN  PIC S9(4) COMP.                               00052003
+       01 WS-COMAREA      PIC X(4).                                     00053003
+       01 WS-COMAREA-LEN  PIC S9(4) COMP.                               00054000
+       77 WS-RESP-CODE    PIC S9(8) COMP.                               00055300
+       77 I               PIC 99    VALUE 1.                            00055400
+       77 J               PIC 99    VALUE 1.                            00055500
+       01 WS-REC.                                                       00055601
+          02              PIC X(4) VALUE SPACES.                        00055706
+          02 WS-ENO       PIC X(4).                                     00055806
+          02              PIC X(10) VALUE SPACES.                       00055918
+          02 WS-FNAME     PIC X(10).                                    00056000
+          02              PIC X(4) VALUE SPACES.                        00056106
+       LINKAGE SECTION.                                                 00056200
+       01 DFHCOMMAREA     PIC XXXX.                                     00056303
+       PROCEDURE DIVISION.                                              00056400
+       MAIN-PARA.                                                       00057000
+           IF EIBCALEN = 0                                              00058000
+              MOVE LOW-VALUES TO EMP088MO                               00059000
+              MOVE 0 TO HV-ENO                                          00059122
+              INITIALIZE WS-REC                                         00059221
+              PERFORM DECLARE-PARA                                      00059300
+              PERFORM OPEN-PARA                                         00059400
+              PERFORM UNTIL (I > 7 OR SQLCODE = 100)                    00059519
+                  PERFORM FETCH-PARA                                    00059619
+                  MOVE HV-ENO   TO WS-ENO                               00059705
+                  MOVE HV-FNAME TO WS-FNAME                             00059805
+                  MOVE WS-REC   TO LINE1O(I)                            00059905
+                  ADD 1 TO I                                            00060001
+                END-PERFORM                                             00060101
+              PERFORM SEND-MAP                                          00060201
+              MOVE HV-ENO TO WS-COMAREA                                 00060301
+              PERFORM COND-RETURN                                       00060401
+           ELSE                                                         00060501
+              PERFORM RECEIVE-MAP                                       00060601
+              MOVE DFHCOMMAREA TO HV-ENO                                00060701
+              PERFORM DECLARE-PARA                                      00060807
+              PERFORM OPEN-PARA                                         00060907
+              EVALUATE EIBAID                                           00061001
+                WHEN DFHPF7                                             00061101
+                   PERFORM UNTIL (I > 7 OR SQLCODE = 100)               00061219
+                      PERFORM FETCH-PARA                                00061301
+                        MOVE HV-ENO TO WS-ENO                           00061405
+                        MOVE HV-FNAME TO WS-FNAME                       00061505
+                        MOVE WS-REC   TO LINE1O(I)                      00061605
+                        ADD 1 TO I                                      00061701
+                      END-PERFORM                                       00061801
+                      PERFORM SEND-MAP                                  00062001
+                      MOVE  HV-ENO TO WS-COMAREA                        00070001
+                      PERFORM COND-RETURN                               00080001
+                WHEN OTHER                                              00158000
+                     PERFORM EXIT-PARA                                  00158201
+                     MOVE 'EXT' TO WS-COMAREA                           00158301
+                     EXEC CICS RETURN                                   00158413
+                     END-EXEC                                           00158513
+              END-EVALUATE                                              00158612
+           END-IF                                                       00158700
+              EXEC CICS RETURN                                          00158800
+              END-EXEC                                                  00158908
+           PERFORM CLOSE-PARA.                                          00159008
+       DECLARE-PARA.                                                    00159101
+           EXEC SQL                                                     00159201
+               DECLARE EMPCUR CURSOR FOR                                00160001
+               SELECT ENO,FNAME                                         00170001
+               FROM EMP                                                 00180001
+               WHERE ENO > :HV-ENO                                      00180102
+               ORDER BY ENO                                             00180201
+           END-EXEC.                                                    00190001
+       OPEN-PARA.                                                       00200001
+           EXEC SQL                                                     00210001
+               OPEN EMPCUR                                              00220001
+           END-EXEC.                                                    00221001
+       FETCH-PARA.                                                      00222001
+           EXEC SQL                                                     00223001
+               FETCH EMPCUR INTO :HV-ENO,:HV-FNAME                      00223101
+           END-EXEC.                                                    00223201
+       CLOSE-PARA.                                                      00223305
+           EXEC SQL                                                     00223405
+               CLOSE EMPCUR                                             00223505
+           END-EXEC.                                                    00223605
+       COND-RETURN.                                                     00234300
+           MOVE LENGTH OF WS-COMAREA TO WS-COMAREA-LEN                  00234400
+           EXEC CICS RETURN                                             00234500
+               TRANSID('T88A')                                          00234600
+               COMMAREA(WS-COMAREA)                                     00234700
+               LENGTH(3)                                                00234800
+           END-EXEC.                                                    00234900
+       SEND-MAP.                                                        00235000
+           EXEC CICS SEND                                               00236000
+              MAP('EMP088M')                                            00237001
+              MAPSET('EMP88MM')                                         00238001
+              ERASE                                                     00239000
+              FREEKB                                                    00240000
+           END-EXEC.                                                    00250000
+       RECEIVE-MAP.                                                     00260000
+           EXEC CICS RECEIVE                                            00270000
+              MAP('EMP088M')                                            00280001
+              MAPSET('EMP88MM')                                         00290001
+           END-EXEC.                                                    00300000
+       EXIT-PARA.                                                       00310001
+           MOVE LOW-VALUES TO WS-SEND                                   00311021
+           MOVE 'THANK YOU.VISIT APP AGAIN.' TO WS-SEND-TEXT            00320001
+           MOVE LENGTH OF WS-SEND-TEXT TO WS-SEND-LEN                   00330001
+           EXEC CICS SEND TEXT                                          00340001
+                FROM(WS-SEND-TEXT)                                      00350001
+                LENGTH(WS-SEND-LEN)                                     00360001
+                ERASE                                                   00370001
+                FREEKB                                                  00380001
+           END-EXEC.                                                    00390001
